@@ -17,12 +17,12 @@
 
 #?(
 :clj
-(defn- make-concurrent-hashmap 
+(defn make-concurrent-hashmap 
   ^ConcurrentHashMap []
   (ConcurrentHashMap.))
 
 :cljr
-(defn- make-concurrent-hashmap 
+(defn make-concurrent-hashmap 
   ^|System.Collections.Concurrent.ConcurrentDictionary`2[System.Object,System.Object]|
   []
   (|System.Collections.Concurrent.ConcurrentDictionary`2[System.Object,System.Object]|.))

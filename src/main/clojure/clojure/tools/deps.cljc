@@ -22,7 +22,7 @@
     [clojure.lang #?(:clj EdnReader$ReaderException :cljr EdnReader+ReaderException)]
     [clojure.lang PersistentQueue]
     #?(:clj [java.io File InputStreamReader BufferedReader]
-	   :cljr [System.IO  FileInfo])
+	   :cljr [System.IO  Path FileInfo])
     #?(:clj [java.lang ProcessBuilder ProcessBuilder$Redirect])
     #?(:clj [java.util List] 
 	   :cljr [System.Collections ArrayList])))
@@ -125,8 +125,8 @@
   (when (#?(:clj .exists :cljr .Exists) dep-file)
     (-> dep-file slurp-edn-map (canonicalize-all-syms (#?(:clj .getPath :cljr .FullName) dep-file)))))
 
-#?
-(:clj 
+#?(
+:clj 
 (defn root-deps
   "Read the root deps.edn resource from the classpath at the path
   clojure/tools/deps/deps.edn"
@@ -142,17 +142,29 @@
   (io/read-edn (.OpenText (cio/file-info (.BaseDirector System.AppDomain/CurrentDomain) "deps.edn"))))
 )
 
+(def directory-separator 
+  #?(:clj File/separator
+     :cljr Path/DirectorySeparatorChar))
+	 
+(defn get-user-home []
+  #?(:clj (System/getProperty "user.home")
+     :cljr (System.Environment/GetFolderPath System.Environment+SpecialFolder/UserProfile)))
+	 
+(defn get-env-var [^String env-var]
+  ( #?(:clj System/getenv 
+       :cljr Environment/GetEnvironmentVariable)  env-var))
+
 (defn user-deps-path
   "Use the same logic as clj to calculate the location of the user deps.edn.
   Note that it's possible no file may exist at this location."
   []
-  (let [config-env (#?(:clj System/getenv :cljr Environment.GetEnvironmentVariable) "CLJ_CONFIG")
-        xdg-env (#?(:clj System/getenv :cljr Environment.GetEnvironmentVariable) "XDG_CONFIG_HOME")
-        home (System/getProperty "user.home")
+  (let [config-env (get-env-var "CLJ_CONFIG")
+        xdg-env (get-env-var "XDG_CONFIG_HOME")
+        home (get-user-home)
         config-dir (cond config-env config-env
-                         xdg-env (str xdg-env File/separator "clojure")
-                         :else (str home File/separator ".clojure"))]
-    (str config-dir File/separator "deps.edn")))
+                         xdg-env (str xdg-env directory-separator "clojure")
+                         :else (str home directory-separator ".clojure"))]
+    (str config-dir directory-separator "deps.edn")))
 
 (defn find-edn-maps
   "Finds and returns standard deps edn maps in a map with keys
@@ -161,11 +173,11 @@
   ([]
    (find-edn-maps nil))
   ([project-edn-file]
-   (let [user-loc (jio/file (user-deps-path))
-         project-loc (jio/file (if project-edn-file project-edn-file (str dir/*the-dir* File/separator "deps.edn")))]
+   (let [user-loc (#?(:clj jio/file :cljr cio/file-info) (user-deps-path))
+         project-loc (#?(:clj jio/file :cljr cio/file-info) (if project-edn-file project-edn-file (str dir/*the-dir* directory-separator "deps.edn")))]
      (cond-> {:root-edn (root-deps)}
-       (.exists user-loc) (assoc :user-edn (slurp-deps user-loc))
-       (.exists project-loc) (assoc :project-edn (slurp-deps project-loc))))))
+       (#?(:clj .exists :cljr .Exists) user-loc) (assoc :user-edn (slurp-deps user-loc))
+       (#?(:clj .exists :cljr .Exists) project-loc) (assoc :project-edn (slurp-deps project-loc))))))
 
 (defn- merge-or-replace
   "If maps, merge, otherwise replace"
@@ -423,7 +435,7 @@
         (if (map? next-q)
           (let [{:keys [pend-children ppath child-pred]} next-q
                 result @pend-children]
-            (when (instance? Throwable result)
+            (when (instance? #?(:clj Throwable :cljr Exception) result)
               (on-error result))
             (next-path (->> result (filter (fn [[lib _coord]] (child-pred lib))) (map #(conj ppath %))) q' on-error))
           {:path next-q, :q' q'})))))
@@ -584,7 +596,7 @@
   [paths]
   (doto paths
     (->> (map first)
-      (run! #(when (not (dir/sub-path? (jio/file %)))
+      (run! #(when (not (dir/sub-path? (#?(:clj jio/file :cljr cio/file-info) %)))
                (io/printerrln "WARNING: Use of :paths external to the project has been deprecated, please remove:" %))))))
 
 (defn- tree-paths
@@ -646,10 +658,13 @@
     {:classpath-roots cp
      :classpath cp-map}))
 
+
+(def path-separator #?(:clj File/pathSeparator :cljr Path/PathSeparator))
+
 (defn join-classpath
   "Takes a coll of string classpath roots and creates a platform sensitive classpath"
   [roots]
-  (str/join File/pathSeparator roots))
+  (str/join path-separator roots))
 
 (defn make-classpath
   "Takes a lib map, and a set of explicit paths. Extracts the paths for each chosen
@@ -725,18 +740,18 @@
               :info  - print only when prepping
               :debug - :info + print for each lib considered"
   [lib-map {:keys [action current log] :or {current false}} config]
-  (let [local-dir (.getAbsolutePath (dir/canonicalize (jio/file ".")))
+  (let [local-dir (#?(:clj .getAbsolutePath :cljr .FullName)(dir/canonicalize (#?(:clj jio/file :cljr cio/file-info) ".")))
         unprepped
         (reduce-kv
          (fn [ret lib {:deps/keys [root manifest] :as coord}]
            (if-let [{f :fn, :keys [alias ensure exec-args]} (ext/prep-command lib coord manifest config)]
-             (let [ensure-dir (when ensure (jio/file root ensure))
-                   unprepped (and ensure (not (.exists ^File ensure-dir)))]
+             (let [ensure-dir (when ensure (#?(:clj jio/file :cljr cio/file-info)root ensure))
+                   unprepped (and ensure (not (#?(:clj .exists :cljr .Exists) ^#?(:clj File  :cljr FileInfo) ensure-dir)))]
                (when (#{:debug} log) (println lib "-" (if unprepped "unprepped" "prepped")))
                (if (or (= action :force) (and unprepped (= action :prep)))
                  (do
                    (when (#{:info :debug} log) (println "Prepping" lib "in" root))
-                   (let [root-dir (jio/file root)]
+                   (let [root-dir (#?(:clj jio/file :cljr cio/file-info) root)]
                      (dir/with-dir root-dir
                        (let [basis (create-basis
                                     {:project :standard ;; deps.edn at root
@@ -803,7 +818,7 @@
   [requested standard-fn]
   (cond
     (= :standard requested) (standard-fn)
-    (string? requested) (-> requested jio/file dir/canonicalize slurp-deps)
+    (string? requested) (-> requested #?(:clj jio/file :cljr cio/file-info) dir/canonicalize slurp-deps)
     (or (nil? requested) (map? requested)) requested
     :else (throw (ex-info (format "Unexpected dep source: %s" (pr-str requested))
                    {:requested requested}))))
@@ -814,8 +829,8 @@
   [{:keys [root user project extra] :as params
     :or {root :standard, user :standard, project :standard}}]
   (let [root-edn (choose-deps root #(root-deps))
-        user-edn (choose-deps user #(-> (user-deps-path) jio/file dir/canonicalize slurp-deps))
-        project-edn (choose-deps project #(-> "deps.edn" jio/file dir/canonicalize slurp-deps))
+        user-edn (choose-deps user #(-> (user-deps-path) #?(:clj jio/file :cljr cio/file-info)  dir/canonicalize slurp-deps))
+        project-edn (choose-deps project #(-> "deps.edn" #?(:clj jio/file :cljr cio/file-info)  dir/canonicalize slurp-deps))
         extra-edn (choose-deps extra (constantly nil))]
     (cond-> {}
       root-edn (assoc :root root-edn)
