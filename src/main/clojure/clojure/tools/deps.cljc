@@ -22,10 +22,12 @@
     [clojure.lang #?(:clj EdnReader$ReaderException :cljr EdnReader+ReaderException)]
     [clojure.lang PersistentQueue]
     #?(:clj [java.io File InputStreamReader BufferedReader]
-	   :cljr [System.IO  Path FileInfo])
-    #?(:clj [java.lang ProcessBuilder ProcessBuilder$Redirect])
+	   :cljr [System.IO  Path FileInfo DirectoryInfo])
+    #?(:clj [java.lang ProcessBuilder ProcessBuilder$Redirect] :cljr [System.Diagnostics ProcessStartInfo Process])
     #?(:clj [java.util List] 
-	   :cljr [System.Collections ArrayList])))
+	   :cljr [System.Collections ArrayList])
+	#?(:cljr [System.Threading CancellationTokenSource CancellationToken])   
+	   ))
 
 (set! *warn-on-reflection* true)
 
@@ -139,7 +141,7 @@
   "Read the root deps.edn resource from the classpath at the path
   clojure/tools/deps/deps.edn"
   []
-  (io/read-edn (.OpenText (cio/file-info (.BaseDirector System.AppDomain/CurrentDomain) "deps.edn"))))
+  (io/read-edn (.OpenText (cio/file-info (.BaseDirectory System.AppDomain/CurrentDomain) "deps.edn"))))
 )
 
 (def directory-separator 
@@ -439,7 +441,9 @@
               (on-error result))
             (next-path (->> result (filter (fn [[lib _coord]] (child-pred lib))) (map #(conj ppath %))) q' on-error))
           {:path next-q, :q' q'})))))
+#?(
 
+:clj
 (defn- expand-deps
   "Dep tree expansion, returns version map"
   [deps default-deps override-deps config executor trace?]
@@ -481,6 +485,56 @@
             (recur pendq new-q vmap exclusions' cut'
               (trace+ trace? trace parents lib coord use-coord coord-id override-coord include reason)))
           (cond-> version-map trace? (with-meta {:trace {:log trace, :vmap version-map, :exclusions exclusions}})))))))
+		  
+:cljr
+
+(defn- expand-deps
+  "Dep tree expansion, returns version map"
+  [deps default-deps override-deps config executor trace?]
+  (with-open [cts (CancellationTokenSource.)]
+    (let [tf (concurrent/create-task-factory)]
+      (letfn [(err-handler [throwable]
+                (do
+                  (.Cancel cts)
+                  (throw ^Exception throwable)))
+				
+              (children-task [lib use-coord use-path child-pred]
+                {:pend-children
+                 (let [{:deps/keys [manifest root]} use-coord]
+                   (dir/with-dir (if root (cio/dir-info root) dir/*the-dir*)
+                     (concurrent/submit-task tf
+                       #(try
+                          (canonicalize-deps (ext/coord-deps lib use-coord manifest config) config)
+                          (catch Exception t t)))))
+                 :ppath use-path
+                 :child-pred child-pred})]
+        (loop [pendq nil ;; a resolved child-lookup thunk to look at first
+               q (into (PersistentQueue/EMPTY) (map vector deps)) ;; queue of nodes or child-lookups
+               version-map nil ;; track all seen versions of libs and which version is selected
+               exclusions nil ;; tracks exclusions marked in the tree
+               cut nil ;; tracks cuts made of child nodes based on exclusions
+               trace []] ;; trace expansion
+          (let [{:keys [path pendq q']} (next-path pendq q err-handler)]
+            (if path
+              (let [[lib coord] (peek path)
+                    parents (pop path)
+                    use-path (conj parents lib)
+                    override-coord (get override-deps lib)
+                    choose-coord (cond override-coord override-coord
+                                       coord coord
+                                       :else (get default-deps lib))
+                    use-coord (merge choose-coord (ext/manifest-type lib choose-coord config))
+                    coord-id (ext/dep-id lib use-coord config)
+                  {:keys [include reason vmap]} (include-coord? version-map lib use-coord coord-id parents exclusions config)
+                  ;_ (println "loop" lib coord-id "include=" include "reason=" reason)
+                  {:keys [exclusions' cut' child-pred]} (update-excl lib use-coord coord-id use-path include reason exclusions cut)
+                  new-q (if child-pred (conj q' (children-task lib use-coord use-path child-pred)) q')]
+                (recur pendq new-q vmap exclusions' cut'
+                  (trace+ trace? trace parents lib coord use-coord coord-id override-coord include reason)))
+              (cond-> version-map trace? (with-meta {:trace {:log trace, :vmap version-map, :exclusions exclusions}})))))))))
+			  
+)
+
 
 (defn- cut-orphans
   "Remove any selected lib that does not have a selected parent path"
@@ -505,6 +559,9 @@
                          (seq parent-paths) (assoc :parents parent-paths)))))
     {} version-map))
 
+#?(
+
+:clj
 (defn- download-libs
   [executor lib-map config]
   (let [lib-futs (reduce-kv
@@ -524,6 +581,32 @@
                        (throw ^Throwable result))
                      (assoc-in lm [lib :paths] result))))
       lib-map lib-futs)))
+	  
+:cljr
+
+(defn- download-libs
+  [executor lib-map config]
+  (with-open [cts (CancellationTokenSource.)]
+    (let [tf (concurrent/create-task-factory)]
+      (let [lib-futs (reduce-kv
+                       (fn [fs lib coord]
+                         (let [fut (concurrent/submit-task
+                                     tf
+                                     #(try
+                                        (ext/coord-paths lib coord (:deps/manifest coord) config)
+                                        (catch Exception t t)))]
+                           (assoc fs lib fut)))
+                       {} lib-map)]
+       (reduce-kv (fn [lm lib fut]
+                     (let [result @fut]
+                       (if (instance? Exception result)
+                         (do
+                           (.Cancel cts)
+                           (throw ^Exception result))
+                         (assoc-in lm [lib :paths] result))))
+          lib-map lib-futs)))))
+	  
+)
 
 (defn resolve-deps
   "Takes a deps configuration map and resolves the transitive dependency graph
@@ -541,7 +624,7 @@
   ([deps-map args-map]
    (let [{:keys [extra-deps default-deps override-deps threads trace]} args-map
          n (or threads concurrent/processors)
-         executor (concurrent/new-executor n)
+         executor #?(:clj (concurrent/new-executor n) :cljr nil)                          ;; TODO -- make this get the task-factory and pass that.
          deps (merge (:deps deps-map) extra-deps)
          version-map (-> deps
                        (canonicalize-deps deps-map)
@@ -704,6 +787,8 @@
       (if ns-default
         (symbol (str ns-default) (str fsym))
         (throw (ex-info (format "Unqualified function can't be resolved: %s" fsym) {}))))))
+#?(
+:clj
 
 (defn- exec-prep!
   "Exec the prep command in the command-args coll. Redirect stdout/stderr to this process,
@@ -724,6 +809,34 @@
                        (.redirectError ProcessBuilder$Redirect/INHERIT))
         proc (.start proc-builder)]
     (.waitFor proc)))
+
+:cljr
+
+(defn- exec-prep!
+  "Exec the prep command in the command-args coll. Redirect stdout/stderr to this process,
+  wait for the process to complete, and return the exit code.
+  Exit code 1 indicates the prep function could not be resolved."
+  [^DirectoryInfo dir classpath f args]
+  ;; clojure.main  clojure.main -e '(do (if-let [resolved-f (requiring-resolve 'f)] (resolved-f nil) (System/exit 1)) nil)'
+  ;; with CLOJURE_LOAD_PATH set to classpath
+  (let [command "clojure.main"
+        command-args ["-e" 
+	               (str "(do (if-let [resolved-f (requiring-resolve '"
+                          f
+                          ")] (resolved-f "
+                           (pr-str args)
+                           ") (Environment/Exit 1)) nil)")]
+	    proc-builder (doto (ProcessStartInfo. command (clojure.string/join " " command-args))
+		                (.set_RedirectStandardError true)
+			            (.set_RedirectStandardOutput true)
+						(.set_WorkingDirectory dir)
+                        (.set_UseShellExecute false))
+		_ (.Add (.EnvironmentVariables proc-builder) "CLOJURE_LOAD_PATH" classpath)
+        proc (Process/Start proc-builder)]
+	  (.WaitForExit proc)
+	  (.ExitCode proc)))
+
+)
 
 (declare create-basis)
 
@@ -939,11 +1052,11 @@
     (last (some #(ext/find-versions lib nil % procurer) types))))
 
 ;; Load extensions
-(load "/clojure/tools/deps/extensions/maven")
-(load "/clojure/tools/deps/extensions/local")
-(load "/clojure/tools/deps/extensions/git")
-(load "/clojure/tools/deps/extensions/deps")
-(load "/clojure/tools/deps/extensions/pom")
+#_(load "/clojure/tools/deps/extensions/maven")
+#_(load "/clojure/tools/deps/extensions/local")
+#_(load "/clojure/tools/deps/extensions/git")
+#_(load "/clojure/tools/deps/extensions/deps")
+#_(load "/clojure/tools/deps/extensions/pom")
 
 (comment
   (require '[clojure.tools.deps.util.maven :as mvn])

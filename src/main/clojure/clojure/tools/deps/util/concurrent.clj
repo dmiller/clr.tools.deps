@@ -9,12 +9,10 @@
 (ns ^{:skip-wiki true}
   clojure.tools.deps.util.concurrent
   (:import
-    #?(:clj [java.util.concurrent Callable Future ThreadFactory ExecutorService Executors TimeUnit])))
+    [java.util.concurrent Callable Future ThreadFactory ExecutorService Executors TimeUnit]))
 
 (set! *warn-on-reflection* true)
 
-#?(
-:clj
 (defonce thread-factory
   (let [counter (atom 0)]
     (reify ThreadFactory
@@ -22,24 +20,12 @@
         (doto (Thread. r)
           (.setName (format "tools.deps worker %s" (swap! counter inc)))
           (.setDaemon true))))))
-)
-
-#?(
-:clj
 
 (defn new-executor
   ^ExecutorService [^long n]
   (Executors/newFixedThreadPool n ^ThreadFactory thread-factory))
-)
-
-#?(
-:clj
 
 (def processors (long (.availableProcessors (Runtime/getRuntime))))
-)
-
-#?(
-:clj
 
 (defn submit-task
   ^Future [^ExecutorService executor f]
@@ -48,13 +34,9 @@
                 (push-thread-bindings bindings)
                 (f))]
     (.submit executor ^Callable task)))
-)
 
-#?(
-:clj
 
 (defn shutdown-on-error
   [^ExecutorService executor]
   (.shutdownNow executor)
   (.awaitTermination executor 1 TimeUnit/SECONDS))
-  )
