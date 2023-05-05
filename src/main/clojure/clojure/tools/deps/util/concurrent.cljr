@@ -14,6 +14,8 @@
 
 (set! *warn-on-reflection* true)
 
+(def processors (long Environment/ProcessorCount))
+
 (defn create-task-factory ^TaskFactory [^CancellationToken ctoken]
   (TaskFactory. ctoken))
 
@@ -21,9 +23,6 @@
   (let [p (promise)]
     (.StartNew tf ^System.Action (gen-delegate System.Action [] (deliver p (f))))
 	p))
-
-(def processors (long (Environment/ProcessorCount)))
-
 	
 ;; TODO -- when we fix the bug in sys-action, this should be just
 ;;   (.StartNew tf (sys-action [] (deliver p (f)))))
