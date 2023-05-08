@@ -1053,9 +1053,9 @@
 
 ;; Load extensions
 #_(load "/clojure/tools/deps/extensions/maven")
-#_(load "/clojure/tools/deps/extensions/local")
-#_(load "/clojure/tools/deps/extensions/git")
-#_(load "/clojure/tools/deps/extensions/deps")
+(load "/clojure/tools/deps/extensions/local")
+(load "/clojure/tools/deps/extensions/git")
+(load "/clojure/tools/deps/extensions/deps")
 #_(load "/clojure/tools/deps/extensions/pom")
 
 (comment
