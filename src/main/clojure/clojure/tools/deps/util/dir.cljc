@@ -41,10 +41,11 @@
 (defn canonicalize
   "Make canonical File in terms of the current directory context.
   f may be either absolute or relative."
-  ^FileSystemInfo [^String f]
-  (if (Path/IsPathRooted f)
-     (cio/file-info f)
-	 (cio/file-info (Path/Join (.FullName *the-dir*) f))))
+  ^FileSystemInfo [f]
+  (let [f (if (instance? FileSystemInfo f) (.FullName ^FileSystemInfo f) (str f))]
+    (if (Path/IsPathRooted f)
+       (cio/file-info f)
+	   (cio/file-info (Path/Join (.FullName *the-dir*) f)))))
 )
 
 (defmacro with-dir

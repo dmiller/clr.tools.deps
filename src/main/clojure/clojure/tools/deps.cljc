@@ -492,7 +492,7 @@
   "Dep tree expansion, returns version map"
   [deps default-deps override-deps config executor trace?]
   (with-open [cts (CancellationTokenSource.)]
-    (let [tf (concurrent/create-task-factory)]
+    (let [tf (concurrent/create-task-factory (.Token cts))]
       (letfn [(err-handler [throwable]
                 (do
                   (.Cancel cts)
@@ -587,7 +587,7 @@
 (defn- download-libs
   [executor lib-map config]
   (with-open [cts (CancellationTokenSource.)]
-    (let [tf (concurrent/create-task-factory)]
+    (let [tf (concurrent/create-task-factory (.Token cts))]
       (let [lib-futs (reduce-kv
                        (fn [fs lib coord]
                          (let [fut (concurrent/submit-task
