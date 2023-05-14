@@ -13,12 +13,12 @@
 	   :cljr [clojure.clr.io :as cio]))
   (:import
     #?(:clj [java.io File] 
-	   :cljr [System.IO DirectoryInfo FileInfo FileSystemInfo])
+	   :cljr [System.IO Path DirectoryInfo FileInfo FileSystemInfo])
     #?(:clj [java.nio.file Files Path])))
 
 (set! *warn-on-reflection* true)
 
-(def ^:dynamic *the-dir*
+(def ^:dynamic  ^DirectoryInfo *the-dir*
   "Thread-local directory context for resolving relative directories.
   Defaults to current directory. Should always hold an absolute directory
   java.io.File, never null."
@@ -37,11 +37,14 @@
       (jio/file *the-dir* f))))
 	  
 :cljr ;; no equivalent notion of canonical.  A FileInfo is always absolute.
+      ;; We must sure to pass a string instead.
 (defn canonicalize
   "Make canonical File in terms of the current directory context.
   f may be either absolute or relative."
-  ^FileSystemInfo [^FileSystemInfo f]
-  f)
+  ^FileSystemInfo [^String f]
+  (if (Path/IsPathRooted f)
+     (cio/file-info f)
+	 (cio/file-info (Path/Join (.FullName *the-dir*) f))))
 )
 
 (defmacro with-dir
