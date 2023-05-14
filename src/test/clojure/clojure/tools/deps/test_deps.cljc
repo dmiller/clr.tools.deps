@@ -89,12 +89,12 @@
     (is (= (set (keys (deps/resolve-deps {:deps {'opt/a {:fkn/version "1"}}} nil)))
           #{'opt/a 'opt/c}))))
 
-(deftest test-basic-expand
+(deftest test-basic-expand                            ;;; BAD
   (fkn/with-libs repo
     (is (= (set (keys (deps/resolve-deps {:deps {'org.clojure/clojure {:fkn/version "1.9.0"}}} nil)))
           #{'org.clojure/clojure 'org.clojure/spec.alpha 'org.clojure/core.specs.alpha}))))
 
-(deftest test-top-dominates
+(deftest test-top-dominates                            ;;; BAD
   (fkn/with-libs repo
     ;; dependent dep decides version
     (is (= (-> {:deps {'org.clojure/clojure {:fkn/version "1.9.0"}}}
@@ -111,7 +111,7 @@
              :fkn/version)
           "0.1.1"))))
 
-(deftest test-override-deps
+(deftest test-override-deps                            ;;; BAD
   (fkn/with-libs repo
     ;; override dep wins
     (is (= (-> {:deps {'org.clojure/clojure {:fkn/version "1.9.0"}}}
@@ -148,7 +148,7 @@
 ;; -> +a1 -> +d1
 ;; -> +b1 -> -e1 -> -d2
 ;; -> +c1 -> +e2
-(deftest test-dep-parent-missing
+(deftest test-dep-parent-missing                                   ;;; BAD
   (fkn/with-libs
     {'ex/a {{:fkn/version "1"} [['ex/d {:fkn/version "1"}]]}
      'ex/b {{:fkn/version "1"} [['ex/e {:fkn/version "1"}]]}
@@ -165,7 +165,7 @@
 
 ;; +a1 -> +b1 -> +x2 -> +y1
 ;; +c1 -> -x1 -> -z1
-(deftest test-dep-choice2
+(deftest test-dep-choice2                                  ;;; BAD
   (fkn/with-libs
     {'ex/a {{:fkn/version "1"} [['ex/b {:fkn/version "1"}]]}
      'ex/b {{:fkn/version "1"} [['ex/x {:fkn/version "2"}]]}
@@ -182,7 +182,7 @@
 ;; should always include d1
 ;; +a1 -> +c1 (excl d) -> d1
 ;; +b1 -> +c1 -> +d1
-(deftest test-dep-same-version-different-exclusions
+(deftest test-dep-same-version-different-exclusions                                ;;; BAD
   (fkn/with-libs
     {'ex/a {{:fkn/version "1"} [['ex/c {:fkn/version "1" :exclusions ['ex/d]}]]}
      'ex/b {{:fkn/version "1"} [['ex/c {:fkn/version "1"}]]}
@@ -194,7 +194,7 @@
 
 ;; +a1 -> +b1 -> -c1 -> a1
 ;;     -> +c2 -> a1
-(deftest test-circular-deps
+(deftest test-circular-deps                                                     ;;; BAD
   (fkn/with-libs {'ex/a {{:fkn/version "1"} [['ex/b {:fkn/version "1"}]
                                              ['ex/c {:fkn/version "2"}]]}
                   'ex/b {{:fkn/version "1"} [['ex/c {:fkn/version "1"}]]}
