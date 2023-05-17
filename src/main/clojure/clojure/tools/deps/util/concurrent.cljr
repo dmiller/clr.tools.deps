@@ -20,8 +20,9 @@
   (TaskFactory. ctoken))
 
 (defn submit-task  [^TaskFactory tf f]
-  (let [p (promise)]
-    (.StartNew tf ^System.Action (gen-delegate System.Action [] (deliver p (f))))
+  (let [p (promise)
+        bindings (get-thread-bindings)]
+    (.StartNew tf ^System.Action (gen-delegate System.Action [] (deliver p (do (push-thread-bindings bindings) (f)))))
 	p))
 	
 ;; TODO -- when we fix the bug in sys-action, this should be just

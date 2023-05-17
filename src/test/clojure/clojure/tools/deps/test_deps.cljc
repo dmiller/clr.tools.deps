@@ -84,17 +84,17 @@
     (is (= (set (keys (deps/resolve-deps {:deps {'opt/b {:fkn/version "1"}}} nil)))
           #{'opt/b}))))
 
-(deftest test-transitive-optional-not-included                             ;;; BAD
+(deftest test-transitive-optional-not-included
   (fkn/with-libs repo
     (is (= (set (keys (deps/resolve-deps {:deps {'opt/a {:fkn/version "1"}}} nil)))
           #{'opt/a 'opt/c}))))
 
-(deftest test-basic-expand                            ;;; BAD
+(deftest test-basic-expand
   (fkn/with-libs repo
     (is (= (set (keys (deps/resolve-deps {:deps {'org.clojure/clojure {:fkn/version "1.9.0"}}} nil)))
           #{'org.clojure/clojure 'org.clojure/spec.alpha 'org.clojure/core.specs.alpha}))))
 
-(deftest test-top-dominates                            ;;; BAD
+(deftest test-top-dominates
   (fkn/with-libs repo
     ;; dependent dep decides version
     (is (= (-> {:deps {'org.clojure/clojure {:fkn/version "1.9.0"}}}
@@ -111,7 +111,7 @@
              :fkn/version)
           "0.1.1"))))
 
-(deftest test-override-deps                            ;;; BAD
+(deftest test-override-deps
   (fkn/with-libs repo
     ;; override dep wins
     (is (= (-> {:deps {'org.clojure/clojure {:fkn/version "1.9.0"}}}
@@ -142,26 +142,26 @@
 ;;     -> +c2
 (deftest test-dep-choice
   (fkn/with-libs repo
-    (= (->> (deps/resolve-deps {:deps {'e1/a {:fkn/version "1"}}} nil) libs->lib-ver)
+    (= (->> (deps/resolve-deps {:deps {'e1/a {:fkn/version #?(:clj "1" :cljr "1.0")}}} nil) libs->lib-ver)
       {:a 1, :b 1, :c 2})))
 
 ;; -> +a1 -> +d1
 ;; -> +b1 -> -e1 -> -d2
 ;; -> +c1 -> +e2
-(deftest test-dep-parent-missing                                   ;;; BAD
+(deftest test-dep-parent-missing
   (fkn/with-libs
-    {'ex/a {{:fkn/version "1"} [['ex/d {:fkn/version "1"}]]}
-     'ex/b {{:fkn/version "1"} [['ex/e {:fkn/version "1"}]]}
-     'ex/c {{:fkn/version "1"} [['ex/e {:fkn/version "2"}]]}
-     'ex/d {{:fkn/version "1"} nil
-            {:fkn/version "2"} nil}
-     'ex/e {{:fkn/version "1"} [['ex/d {:fkn/version "2"}]]
-            {:fkn/version "2"} nil}}
-    (let [r (->> (deps/resolve-deps {:deps {'ex/a {:fkn/version "1"}
-                                            'ex/b {:fkn/version "1"}
-                                            'ex/c {:fkn/version "1"}}} nil)
+    {'ex/a {{:fkn/version #?(:clj "1" :cljr "1.0")} [['ex/d {:fkn/version #?(:clj "1" :cljr "1.0")}]]}
+     'ex/b {{:fkn/version #?(:clj "1" :cljr "1.0")} [['ex/e {:fkn/version #?(:clj "1" :cljr "1.0")}]]}
+     'ex/c {{:fkn/version #?(:clj "1" :cljr "1.0")} [['ex/e {:fkn/version #?(:clj "2" :cljr "2.0")}]]}
+     'ex/d {{:fkn/version #?(:clj "1" :cljr "1.0")} nil
+            {:fkn/version #?(:clj "2" :cljr "2.0")} nil}
+     'ex/e {{:fkn/version #?(:clj "1" :cljr "1.0")} [['ex/d {:fkn/version #?(:clj "2" :cljr "2.0")}]]
+            {:fkn/version #?(:clj "2" :cljr "2.0")} nil}}
+    (let [r (->> (deps/resolve-deps {:deps {'ex/a {:fkn/version #?(:clj "1" :cljr "1.0")}
+                                            'ex/b {:fkn/version #?(:clj "1" :cljr "1.0")}
+                                            'ex/c {:fkn/version #?(:clj "1" :cljr "1.0")}}} nil)
               libs->lib-ver)]
-      (is (= r {:a "1", :b "1", :c "1", :d "1", :e "2"})))))
+      (is (= r {:a #?(:clj "1" :cljr "1.0"), :b #?(:clj "1" :cljr "1.0"), :c #?(:clj "1" :cljr "1.0"), :d #?(:clj "1" :cljr "1.0"), :e #?(:clj "2" :cljr "2.0")})))))
 
 ;; +a1 -> +b1 -> +x2 -> +y1
 ;; +c1 -> -x1 -> -z1
