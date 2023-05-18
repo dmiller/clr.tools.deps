@@ -40,7 +40,9 @@
 
 (defn- parse-version [{version :fkn/version :as _coord}]
   #?(:clj (.parseVersion ^GenericVersionScheme version-scheme ^String version)
-     :cljr (System.Version/Parse version)))                                       ;; okay as long as we only have to do x.y.z, nothing fancty like x.y.z-alpha1
+     :cljr (if (.Contains ^String version \.) 
+	        (System.Version/Parse version)
+			(System.Version/Parse (str version ".0")))))                 ;; okay as long as we only have to do x.y.z, nothing fancty like x.y.z-alpha1 + need to have at least major.minor
 
 (defmethod ext/compare-versions [:fkn :fkn]
   [_lib coord-x coord-y _config]

@@ -142,30 +142,30 @@
 ;;     -> +c2
 (deftest test-dep-choice
   (fkn/with-libs repo
-    (= (->> (deps/resolve-deps {:deps {'e1/a {:fkn/version #?(:clj "1" :cljr "1.0")}}} nil) libs->lib-ver)
-      {:a 1, :b 1, :c 2})))
+    (is (= (->> (deps/resolve-deps {:deps {'e1/a {:fkn/version "1"}}} nil) libs->lib-ver)
+      {:a "1", :b "1", :c "2"}))))
 
 ;; -> +a1 -> +d1
 ;; -> +b1 -> -e1 -> -d2
 ;; -> +c1 -> +e2
 (deftest test-dep-parent-missing
   (fkn/with-libs
-    {'ex/a {{:fkn/version #?(:clj "1" :cljr "1.0")} [['ex/d {:fkn/version #?(:clj "1" :cljr "1.0")}]]}
-     'ex/b {{:fkn/version #?(:clj "1" :cljr "1.0")} [['ex/e {:fkn/version #?(:clj "1" :cljr "1.0")}]]}
-     'ex/c {{:fkn/version #?(:clj "1" :cljr "1.0")} [['ex/e {:fkn/version #?(:clj "2" :cljr "2.0")}]]}
-     'ex/d {{:fkn/version #?(:clj "1" :cljr "1.0")} nil
-            {:fkn/version #?(:clj "2" :cljr "2.0")} nil}
-     'ex/e {{:fkn/version #?(:clj "1" :cljr "1.0")} [['ex/d {:fkn/version #?(:clj "2" :cljr "2.0")}]]
-            {:fkn/version #?(:clj "2" :cljr "2.0")} nil}}
-    (let [r (->> (deps/resolve-deps {:deps {'ex/a {:fkn/version #?(:clj "1" :cljr "1.0")}
-                                            'ex/b {:fkn/version #?(:clj "1" :cljr "1.0")}
-                                            'ex/c {:fkn/version #?(:clj "1" :cljr "1.0")}}} nil)
+    {'ex/a {{:fkn/version "1"} [['ex/d {:fkn/version "1"}]]}
+     'ex/b {{:fkn/version "1"} [['ex/e {:fkn/version "1"}]]}
+     'ex/c {{:fkn/version "1"} [['ex/e {:fkn/version "2"}]]}
+     'ex/d {{:fkn/version "1"} nil
+            {:fkn/version "2"} nil}
+     'ex/e {{:fkn/version "1"} [['ex/d {:fkn/version "2"}]]
+            {:fkn/version "2"} nil}}
+    (let [r (->> (deps/resolve-deps {:deps {'ex/a {:fkn/version "1"}
+                                            'ex/b {:fkn/version "1"}
+                                            'ex/c {:fkn/version "1"}}} nil)
               libs->lib-ver)]
-      (is (= r {:a #?(:clj "1" :cljr "1.0"), :b #?(:clj "1" :cljr "1.0"), :c #?(:clj "1" :cljr "1.0"), :d #?(:clj "1" :cljr "1.0"), :e #?(:clj "2" :cljr "2.0")})))))
+      (is (= r {:a "1", :b "1", :c "1", :d "1", :e "2"})))))
 
 ;; +a1 -> +b1 -> +x2 -> +y1
 ;; +c1 -> -x1 -> -z1
-(deftest test-dep-choice2                                  ;;; BAD
+(deftest test-dep-choice2
   (fkn/with-libs
     {'ex/a {{:fkn/version "1"} [['ex/b {:fkn/version "1"}]]}
      'ex/b {{:fkn/version "1"} [['ex/x {:fkn/version "2"}]]}
@@ -182,7 +182,7 @@
 ;; should always include d1
 ;; +a1 -> +c1 (excl d) -> d1
 ;; +b1 -> +c1 -> +d1
-(deftest test-dep-same-version-different-exclusions                                ;;; BAD
+(deftest test-dep-same-version-different-exclusions
   (fkn/with-libs
     {'ex/a {{:fkn/version "1"} [['ex/c {:fkn/version "1" :exclusions ['ex/d]}]]}
      'ex/b {{:fkn/version "1"} [['ex/c {:fkn/version "1"}]]}
@@ -259,7 +259,10 @@
           (let [res (deps/resolve-deps {:deps {'ex/a {:fkn/version "1"}}} nil)]
             (libs->lib-ver res))))))
 
-(def ^:dynamic ^File *test-dir*)
+(def ^:dynamic ^#?(:clj File :cljr DirectoryInfo) *test-dir*)
+
+#?(
+:clj 
 
 (defmacro with-test-dir
   [& body]
@@ -269,6 +272,10 @@
      (.mkdirs dir#)
      (binding [*test-dir* dir#]
        ~@body)))
+)
+
+#?(
+:clj
 
 (deftest test-local-root
   (with-test-dir
@@ -283,6 +290,10 @@
           (let [abs-b (.getAbsolutePath (jio/file *test-dir* "b"))]
             (is (= ['ex/b {:local/root abs-b}]
                    (ext/canonicalize 'ex/b {:local/root abs-b} {})))))))))
+)
+
+#?(
+:clj
 
 ;; simple check that pom resolution is working - load tda itself as pom dep
 (deftest test-local-pom
@@ -290,6 +301,10 @@
              {:deps {'c/tda {:local/root "." :deps/manifest :pom}}
               :mvn/repos mvn/standard-repos}
              nil))))
+)
+
+#?(
+:clj
 
 (def install-data
   {:paths ["src"]
@@ -297,6 +312,10 @@
    :aliases {:test {:extra-paths ["test"]}}
    :mvn/repos {"central" {:url "https://repo1.maven.org/maven2/"}
                "clojars" {:url "https://repo.clojars.org/"}}})
+)
+
+#?(
+:clj
 
 (deftest calc-basis
   (let [{:keys [libs classpath] :as basis} (deps/calc-basis install-data)]
@@ -312,10 +331,14 @@
                                     {:lib-name 'org.clojure/core.specs.alpha}
                                     {:path-key :paths}}))
     (is (contains? (set (keys classpath)) "src"))))
+)
 
 (defn select-cp
   [classpath key]
   (->> classpath (filter #(contains? (val %) key)) (apply conj {})))
+
+#?(
+:clj
 
 (deftest calc-basis-extra-deps
   (let [ra {:extra-deps {'org.clojure/tools.deps.alpha {:mvn/version "0.8.677"}}}
@@ -324,6 +347,10 @@
     ;; libs has extra deps and transitive deps
     (is (< 4 (count expanded-deps)))
     (is (contains? expanded-deps 'org.clojure/tools.deps.alpha))))
+)
+
+#?(
+:clj
 
 (deftest calc-basis-override-deps
   (let [ra {:extra-deps {'org.clojure/clojure {:mvn/version "1.6.0"}}}
@@ -331,18 +358,31 @@
     ;; libs has extra deps and transitive deps
     (is (= (get-in libs ['org.clojure/clojure :mvn/version]) "1.6.0"))))
 
+)
+
+#?(
+:clj 
+
 (deftest calc-basis-extra-paths
   (let [cpa {:extra-paths ["x" "y"]}
         {:keys [classpath]} (deps/calc-basis install-data {:classpath-args cpa})]
     ;; classpath has extra paths
     (is (= {"src" {:path-key :paths}, "x" {:path-key :extra-paths}, "y" {:path-key :extra-paths}}
           (select-cp classpath :path-key)))))
+)
+
+#?(
+:clj
 
 (deftest calc-basis-classpath-overrides
   (let [cpa {:classpath-overrides {'org.clojure/clojure "foo"}}
         {:keys [classpath]} (deps/calc-basis install-data {:classpath-args cpa})]
     ;; classpath has replaced path
     (is (= (get classpath "foo") {:lib-name 'org.clojure/clojure}))))
+)
+
+#?(
+:clj
 
 (deftest optional-deps-included
   (let [master-edn (merge install-data
@@ -352,6 +392,10 @@
 
     ;; libs contains optional dep
     (is (= (get-in libs ['org.clojure/core.async :mvn/version]) "1.1.587"))))
+)
+
+#?(
+:clj
 
 ;(update-excl [lib use-coord coord-id use-path include reason exclusions cut])
 (deftest test-update-excl
@@ -410,6 +454,7 @@
     (let [pred (:child-pred ret)] ;; everything already enqueued
       (is (false? (boolean (pred 'c))))
       (is (false? (boolean (pred 'd)))))))
+)
 
 ;; +x1 -> -a1 -> +b2
 ;; +z1 -> +y1 -> +a2 -> -b1 (or +b1, but at least a consistent result)
@@ -485,6 +530,9 @@
        :basis-config {:root nil, :user nil, :aliases [:a1 :a2]} ;; aliases remembered
        })))
 
+#?(
+:clj
+
 (deftest test-resolved-added-libs
   (let [basis (deps/create-basis {:user nil :project nil})
         libs (:libs basis)]
@@ -493,9 +541,13 @@
       '{org.clojure/tools.cli {:mvn/version "1.0.214"}}
       '{io.github.clojure/tools.deps.graph {:git/tag "v1.1.76" :git/sha "6c58e98"}}
       '{org.clojure/tools.deps {:local/root "."}})))
+)
 
+#?(
+:clj
 (deftest test-find-all-versions
   (is (seq (ext/find-all-versions 'ragtime nil {:mvn/repos mvn/standard-repos}))))
+)
 
 (comment
   (test-resolved-added-libs)
