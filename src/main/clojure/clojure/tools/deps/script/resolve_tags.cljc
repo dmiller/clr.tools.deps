@@ -9,7 +9,8 @@
 (ns ^{:skip-wiki true}
   clojure.tools.deps.script.resolve-tags
   (:require
-    [clojure.java.io :as jio]
+    #?(:clj [clojure.java.io :as jio]
+	   :cljr [clojure.clr.io :as cio])
     [clojure.pprint :as pp]
     [clojure.walk :as walk]
     [clojure.tools.deps :as deps]
@@ -59,7 +60,7 @@
 (defn exec
   [{:keys [deps-file]}]
   (try
-    (let [deps-map (deps/slurp-deps (jio/file deps-file))
+    (let [deps-map (deps/slurp-deps (#?(:clj jio/file :cljr cio/file-info) deps-file))
           counter (atom 0)]
       (printerrln "Resolving git tags in" deps-file "...")
       (let [resolved-map (resolve-git-deps counter deps-map)]
@@ -71,11 +72,12 @@
                               #'pp/*print-miser-width* 80
                               #'*print-namespace-maps* false}
                 (pp/pprint resolved-map)))))))
-    (catch Throwable t
-      (printerrln "Error resolving tags." (.getMessage t))
+    (catch #?(:clj Throwable :cljr Exception) t
+      (printerrln "Error resolving tags." (#?(:clj .getMessage :cljr .Message) t))
       (when-not (instance? IExceptionInfo t)
-        (.printStackTrace t))
-      (System/exit 1))))
+        #?(:clj (.printStackTrace t)
+		   :cljr  (System.Console/WriteLine (.StackTrace t))))
+      (#?(:clj System/exit :cljr Environment/Exit) 1))))
 
 (defn -main
   "Main entry point for resolve-tags script.
