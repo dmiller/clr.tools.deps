@@ -17,7 +17,7 @@
     #?(:clj [clojure.tools.deps.util.maven :as maven])
     [clojure.tools.deps.util.session :as session])
   (:import
-    #?(:clj [java.io File IOException] :cljr [System.IO FileInfo])
+    #?(:clj [java.io File IOException] :cljr [System.IO FileInfo DirectoryInfo])
     #?(:clj [java.net URL])
     #?(:clj [java.util.jar JarFile JarEntry])
     ;; maven-builder-support
@@ -39,12 +39,23 @@
     (if (#?(:clj .exists :cljr .Exists) f)
       f
       (throw (ex-info (format "Local lib %s not found: %s" lib root) {:lib lib :root root})))))
+	  
+	  
+#?(
+:cljr
+(defn- ensure-directory
+  ^DirectoryInfo [lib root]
+  (let [d (cio/dir-info root)]
+    (if (.Exists d)
+      d
+      (throw (ex-info (format "Local lib %s not found: %s" lib root) {:lib lib :root root})))))	  
+)
 
 (defmethod ext/canonicalize :local
   [lib {:keys [local/root] :as coord} _config]
   (let [canonical-root #?(:clj (.getCanonicalPath (dir/canonicalize (jio/file root)))
-                          :cljr (.FullName (dir/canonicalize (cio/file-info root))))]
-    (ensure-file lib canonical-root) ;; throw if missing
+                          :cljr (.FullName (dir/canonicalize root)))]
+    (#?(:clj ensure-file :cljr ensure-directory) lib canonical-root) ;; throw if missing
     [lib (assoc coord :local/root canonical-root)]))
 
 (defmethod ext/lib-location :local

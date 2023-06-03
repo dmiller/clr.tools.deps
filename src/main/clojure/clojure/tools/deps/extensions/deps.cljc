@@ -38,7 +38,7 @@
   [_lib {:keys [deps/root] :as _coord} _mf config]
   (dir/with-dir (#?(:clj jio/file :cljr cio/file-info) root)
     (->> (:paths (deps-map config root))
-      (map #(dir/canonicalize (#?(:clj jio/file :cljr cio/file-info) %)))
+      (map #(dir/canonicalize (#?(:clj jio/file :cljr identity) %)))
       (map #(do
               (when (not (dir/sub-path? %))
                 (io/printerrln "WARNING: Deprecated use of path" % "external to project" root))

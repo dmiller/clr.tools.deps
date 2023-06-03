@@ -18,7 +18,7 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:dynamic  ^DirectoryInfo *the-dir*
+(def ^:dynamic  ^#?(:clj File :cljr DirectoryInfo) *the-dir*
   "Thread-local directory context for resolving relative directories.
   Defaults to current directory. Should always hold an absolute directory
   java.io.File, never null."
@@ -37,7 +37,7 @@
       (jio/file *the-dir* f))))
 	  
 :cljr ;; no equivalent notion of canonical.  A FileInfo is always absolute.
-      ;; We must sure to pass a string instead.
+      ;; if relative paths are involved we must be sure to pass a string instead.
 (defn canonicalize
   "Make canonical File in terms of the current directory context.
   f may be either absolute or relative."

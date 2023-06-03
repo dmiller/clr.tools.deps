@@ -263,7 +263,6 @@
 
 #?(
 :clj 
-
 (defmacro with-test-dir
   [& body]
   `(let [name# (-> clojure.test/*testing-vars* last symbol str)
@@ -272,11 +271,21 @@
      (.mkdirs dir#)
      (binding [*test-dir* dir#]
        ~@body)))
+	   
+:cljr
+(defmacro with-test-dir
+  [& body]
+  `(let [name# (-> clojure.test/*testing-vars* last symbol str)
+         dir# (cio/dir-info "test-out" name#)]
+     (try (.Delete dir#) (catch Exception e#  nil))
+     (.Create dir#)
+     (binding [*test-dir* dir#]
+       ~@body)))
+	   
 )
 
 #?(
 :clj
-
 (deftest test-local-root
   (with-test-dir
     (let [base (.getCanonicalFile *test-dir*)]
@@ -290,7 +299,22 @@
           (let [abs-b (.getAbsolutePath (jio/file *test-dir* "b"))]
             (is (= ['ex/b {:local/root abs-b}]
                    (ext/canonicalize 'ex/b {:local/root abs-b} {})))))))))
-)
+				   
+:cljr
+(deftest test-local-root
+  (with-test-dir
+    (let [base *test-dir*]
+      (.Create (.Directory (cio/file-info *test-dir* "b/deps.edn")))
+      (testing "a relative local root canonicalizes relative to parent dep"
+        (binding [dir/*the-dir* base]
+          (is (= ['ex/b {:local/root (.FullName (cio/file-info base "b"))}]
+                 (ext/canonicalize 'ex/b {:local/root "b"} {})))))
+      (testing "an absolute local root canonicalizes to itself"
+        (binding [dir/*the-dir* base]
+          (let [abs-b (.FullName (cio/dir-info *test-dir* "b"))]
+            (is (= ['ex/b {:local/root abs-b}]
+                   (ext/canonicalize 'ex/b {:local/root abs-b} {})))))))))
+)				   
 
 #?(
 :clj

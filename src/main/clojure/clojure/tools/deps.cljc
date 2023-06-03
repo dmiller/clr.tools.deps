@@ -141,7 +141,7 @@
   "Read the root deps.edn resource from the classpath at the path
   clojure/tools/deps/deps.edn"
   []
-  (io/read-edn (.OpenText (cio/file-info (.BaseDirectory System.AppDomain/CurrentDomain) "deps.edn"))))
+  (io/read-edn (.OpenText (cio/file-info (.BaseDirectory System.AppDomain/CurrentDomain) "clojure/tools/deps/deps.edn"))))
 )
 
 (def directory-separator 
@@ -931,7 +931,7 @@
   [requested standard-fn]
   (cond
     (= :standard requested) (standard-fn)
-    (string? requested) (-> requested #?(:clj jio/file :cljr cio/file-info) dir/canonicalize slurp-deps)
+    (string? requested) (-> requested #?(:clj jio/file :cljr identity) dir/canonicalize slurp-deps)
     (or (nil? requested) (map? requested)) requested
     :else (throw (ex-info (format "Unexpected dep source: %s" (pr-str requested))
                    {:requested requested}))))
@@ -942,8 +942,8 @@
   [{:keys [root user project extra] :as params
     :or {root :standard, user :standard, project :standard}}]
   (let [root-edn (choose-deps root #(root-deps))
-        user-edn (choose-deps user #(-> (user-deps-path) #?(:clj jio/file :cljr cio/file-info)  dir/canonicalize slurp-deps))
-        project-edn (choose-deps project #(-> "deps.edn" #?(:clj jio/file :cljr cio/file-info)  dir/canonicalize slurp-deps))
+        user-edn (choose-deps user #(-> (user-deps-path) #?(:clj jio/file :cljr identity)  dir/canonicalize slurp-deps))
+        project-edn (choose-deps project #(-> "deps.edn" #?(:clj jio/file :cljr identity)  dir/canonicalize slurp-deps))
         extra-edn (choose-deps extra (constantly nil))]
     (cond-> {}
       root-edn (assoc :root root-edn)
