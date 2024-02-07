@@ -80,7 +80,7 @@
   (cond
     manifest {:deps/manifest manifest :deps/root root}
     #?(:clj (.isFile (ensure-file lib root))
-       :cljr (normal? (ensure-file lib root))) {:deps/manifest :jar, :deps/root root}
+       :cljr (normal? (ensure-directory lib root))) {:deps/manifest :jar, :deps/root root}
     :else (ext/detect-manifest root)))
 
 (defmethod ext/coord-summary :local [lib {:keys [local/root]}]

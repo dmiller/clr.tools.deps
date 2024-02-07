@@ -23,7 +23,7 @@
   Defaults to current directory. Should always hold an absolute directory
   java.io.File, never null."
   #?(:clj (jio/file (System/getProperty "user.dir"))
-     :cljr (cio/dir-info (Environment/GetFolderPath System.Environment+SpecialFolder/UserProfile))))
+     :cljr (cio/dir-info Environment/CurrentDirectory)))
 
 #?
 (:clj

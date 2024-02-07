@@ -53,7 +53,7 @@
    (.get_Item session key))
   ([key if-absent-fn]
    (.GetOrAdd session key
-		(sys-func [Object Object] [] (if-absent-fn)))))		
+		(sys-func [Object Object] [x] (if-absent-fn)))))
 )
 
 #?(

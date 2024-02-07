@@ -127,6 +127,8 @@
   (when (#?(:clj .exists :cljr .Exists) dep-file)
     (-> dep-file slurp-edn-map (canonicalize-all-syms (#?(:clj .getPath :cljr .FullName) dep-file)))))
 
+(def install-dir (atom nil))
+
 #?(
 :clj 
 (defn root-deps
@@ -141,7 +143,7 @@
   "Read the root deps.edn resource from the classpath at the path
   clojure/tools/deps/deps.edn"
   []
-  (io/read-edn (.OpenText (cio/file-info (.BaseDirectory System.AppDomain/CurrentDomain) "clojure/tools/deps/deps.edn"))))
+  (io/read-edn (.OpenText (cio/file-info @install-dir "clojure/tools/deps/deps.edn"))))
 )
 
 (def directory-separator 
@@ -510,7 +512,7 @@
                  :child-pred child-pred})]
         (loop [pendq nil ;; a resolved child-lookup thunk to look at first
                q (into (PersistentQueue/EMPTY) (map vector deps)) ;; queue of nodes or child-lookups
-               version-map nil ;; track all seen versions of libs and which version is selected
+               version-map {} ;; track all seen versions of libs and which version is selected
                exclusions nil ;; tracks exclusions marked in the tree
                cut nil ;; tracks cuts made of child nodes based on exclusions
                trace []] ;; trace expansion

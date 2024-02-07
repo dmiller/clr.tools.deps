@@ -28,6 +28,7 @@
    [nil "--config-user PATH" "User deps.edn location"]
    [nil "--config-project PATH" "Project deps.edn location"]
    [nil "--config-data EDN" "Final deps.edn data to treat as the last deps.edn file" :parse-fn parse/parse-config]
+   #?(:cljr [nil "--install-dir PATH" "Installation directory (CLJR only), internal use"] )
    ;; tool args to resolve
    [nil "--tool-mode" "Tool mode (-T), may optionally supply tool-name or tool-aliases"]
    [nil "--tool-name NAME" "Tool name"]
@@ -153,7 +154,10 @@
 
 (defn run
   "Run make-classpath script. See -main for details."
-  [{:keys [config-user config-project cp-file jvm-file main-file basis-file manifest-file skip-cp trace tree] :as opts}]
+  [{:keys [install-dir config-user config-project cp-file jvm-file main-file basis-file manifest-file skip-cp trace tree] :as opts}]
+
+  (reset! clojure.tools.deps/install-dir install-dir)
+
   (let [opts' (merge opts {:install-deps (deps/root-deps)
                            :user-deps (read-deps config-user)
                            :project-deps (read-deps config-project)
@@ -204,7 +208,7 @@
         (#?(:clj System/exit :cljr Environment/Exit) 1))
       (run options))
     (catch #?(:clj Throwable :cljr Exception) t
-      (printerrln "Error building classpath." (.getMessage t))
+      (printerrln "Error building classpath." (#?(:clj .getMessage :cljr .Message) t))
       (when-not (instance? IExceptionInfo t)
         #?(:clj (.printStackTrace t)
 		   :cljr  (System.Console/WriteLine (.StackTrace t))))
