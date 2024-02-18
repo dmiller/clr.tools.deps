@@ -952,6 +952,32 @@
       user-edn (assoc :user user-edn)
       project-edn (assoc :project project-edn)
       extra-edn (assoc :extra extra-edn))))
+	  
+#?(
+:clj	  
+(defmacro ^:private in-project-dir
+  "If project deps.edn is not in the current dir, push project directory
+  into current directory context while creating basis. Local deps use paths
+  relative to project dir."
+  [project-deps & body]
+  `(if (and (instance? String ~project-deps)
+        (not (.equals dir/*the-dir* (.getParentFile (jio/file ~project-deps)))))
+     (dir/with-dir (.getParentFile (jio/file ~project-deps))
+        ~@body)
+     (do ~@body)))	  
+	 
+:cljr
+(defmacro ^:private in-project-dir
+  "If project deps.edn is not in the current dir, push project directory
+  into current directory context while creating basis. Local deps use paths
+  relative to project dir."
+  [project-deps & body]
+  `(if (and (instance? String ~project-deps)
+        (not (.Equals dir/*the-dir* (.Directory (cio/file-info ~project-deps)))))
+     (dir/with-dir (.Directory (cio/file-info ~project-deps))
+        ~@body)
+     (do ~@body)))	  
+)
 
 (defn create-basis
   "Create a basis from a set of deps sources and a set of aliases. By default, use
@@ -988,30 +1014,31 @@
     :classpath - classpath map per make-classpath-map
     :classpath-roots - vector of paths in classpath order"
   [{:keys [root user project extra aliases] :as params}]
-  (let [basis-config (cond-> nil
-                       (contains? params :root) (assoc :root root)
-                       (contains? params :project) (assoc :project project)
-                       (contains? params :user) (assoc :user user)
-                       (contains? params :extra) (assoc :extra extra)
-                       (seq aliases) (assoc :aliases (vec aliases)))
+  (in-project-dir project 
+    (let [basis-config (cond-> nil
+                         (contains? params :root) (assoc :root root)
+                         (contains? params :project) (assoc :project project)
+                         (contains? params :user) (assoc :user user)
+                         (contains? params :extra) (assoc :extra extra)
+                         (seq aliases) (assoc :aliases (vec aliases)))
 
-        {root-edn :root user-edn :user project-edn :project extra-edn :extra} (create-edn-maps params)
-        edn-maps [root-edn user-edn project-edn extra-edn]
+          {root-edn :root user-edn :user project-edn :project extra-edn :extra} (create-edn-maps params)
+          edn-maps [root-edn user-edn project-edn extra-edn]
 
-        alias-data (->> edn-maps
-                        (map :aliases)
-                        (remove nil?)
-                        (apply merge-with merge))
-        argmap-data (->> aliases
-                         (remove nil?)
-                         (map #(get alias-data %)))
-        argmap (apply merge-alias-maps argmap-data)
-
-        project-tooled-edn (tool project-edn argmap)
-        merged-edn (merge-edns [root-edn user-edn project-tooled-edn extra-edn])
-        basis (calc-basis merged-edn {:resolve-args argmap, :classpath-args argmap})]
-    (cond-> (assoc basis :basis-config basis-config)
-      (pos? (count argmap)) (assoc :argmap argmap))))
+            alias-data (->> edn-maps
+                          (map :aliases)
+                          (remove nil?)
+                          (apply merge-with merge))
+          argmap-data (->> aliases
+                           (remove nil?)
+                           (map #(get alias-data %)))
+          argmap (apply merge-alias-maps argmap-data)
+  
+          project-tooled-edn (tool project-edn argmap)
+          merged-edn (merge-edns [root-edn user-edn project-tooled-edn extra-edn])
+          basis (calc-basis merged-edn {:resolve-args argmap, :classpath-args argmap})]
+      (cond-> (assoc basis :basis-config basis-config)
+        (pos? (count argmap)) (assoc :argmap argmap)))))
 
 (defn resolve-added-libs
   "Given an existing map of current libs and a map of libs to add,
