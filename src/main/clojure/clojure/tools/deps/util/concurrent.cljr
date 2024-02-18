@@ -21,9 +21,8 @@
 
 (defn submit-task  [^TaskFactory tf f]
   (let [p (promise)
-        bindings (get-thread-bindings)]
-    (.StartNew tf ^System.Action (gen-delegate System.Action [] (deliver p (do (push-thread-bindings bindings) (f)))))
+        ;;bindings (get-thread-bindings)
+		task (bound-fn* f)]
+    (.StartNew tf (sys-action [] (deliver p (task))))
 	p))
 	
-;; TODO -- when we fix the bug in sys-action, this should be just
-;;   (.StartNew tf (sys-action [] (deliver p (f)))))

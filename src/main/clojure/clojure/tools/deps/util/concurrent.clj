@@ -30,9 +30,7 @@
 (defn submit-task
   ^Future [^ExecutorService executor f]
   (let [bindings (get-thread-bindings)
-        task #(do
-                (push-thread-bindings bindings)
-                (f))]
+        task (bound-fn* f)]
     (.submit executor ^Callable task)))
 
 
