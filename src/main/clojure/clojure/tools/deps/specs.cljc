@@ -124,6 +124,34 @@
 (s/def :prep/ensure ::path)
 (s/def :prep/fn symbol?)
 
+(defn valid-deps?
+  "Determine whether the deps map is valid according to the specs"
+  [deps-map]
+  (s/valid? ::deps-map deps-map))
+
+(defn explain-deps
+  "If a spec is invalid, return a message explaining why, suitable
+  for an error message"
+  [deps-map]
+  (let [err-data (s/explain-data ::deps-map deps-map)]
+    (if (nil? err-data)
+      "Failed spec, reason unknown"
+      (str "Failed spec, most likely cause:" #?(:clj (System/lineSeparator)  :cljr (Environment/NewLine))
+        (first (clojure.string/split-lines (s/explain-str ::deps-map deps-map)))))))
+
+(defn explain-deps
+  "If a spec is invalid, return a message explaining why, suitable
+  for an error message"
+  [deps-map]
+  (let [err-data (s/explain-data ::deps-map deps-map)]
+    (if (nil? err-data)
+      "Failed spec, reason unknown"
+      (let [problems (->> (::s/problems err-data)
+                       (sort-by #(- (count (:in %))))
+                       (sort-by #(- (count (:path %)))))
+            {:keys [path pred val reason via in]} (first problems)]
+        (str "Found: " (pr-str val) ", expected: " (if reason reason (s/abbrev pred)))))))
+
 ;; API
 
 (s/fdef clojure.tools.deps/resolve-deps

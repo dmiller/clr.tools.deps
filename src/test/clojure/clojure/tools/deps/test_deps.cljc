@@ -7,6 +7,7 @@
     [clojure.tools.deps.util :as util]
     [clojure.tools.deps.extensions :as ext]
     [clojure.tools.deps.extensions.faken :as fkn]
+	[clojure.tools.deps.specs :as specs]
     [clojure.tools.deps.util.dir :as dir]
     #?(:clj [clojure.tools.deps.util.maven :as mvn]))
   (:import
@@ -337,7 +338,7 @@
 
 (deftest empty-nil-deps-is-valid
   (testing "file exists but is empty (nil)"
-    (is (deps/valid-deps? nil))))
+    (is (specs/valid-deps? nil))))
 
 (deftest TDEPS-238
   (testing "deps are invalid with extra nested vector in :exclusions"
@@ -345,7 +346,7 @@
                    {'org.clojure/core.memoize
                     {:mvn/version "1.0.257"
                      :exclusions [['org.clojure/data.priority-map]]}}}]
-      (is (not (deps/valid-deps? invalid))))))
+      (is (not (specs/valid-deps? invalid))))))
 
 (comment
   (test-local-root-relative-to-project-deps)

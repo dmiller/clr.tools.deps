@@ -11,7 +11,6 @@
     #?(:clj [clojure.java.io :as jio]
 	   :cljr [clojure.clr.io :as cio])
     [clojure.set :as set]
-    [clojure.spec.alpha :as s]	
     [clojure.string :as str]
     [clojure.tools.deps.util.concurrent :as concurrent]
     [clojure.tools.deps.util.dir :as dir]
@@ -49,9 +48,6 @@
     (ex-info (format fmt path) {:path path})))
 )	
 
-(defn valid-deps? [m]
-  (s/valid? ::specs/deps-map m))
-
 #?(
 :clj 
 (defn- slurp-edn-map
@@ -63,9 +59,9 @@
                    (if (str/starts-with? (.getMessage t) "EOF while reading")
                      (throw (io-err "Error reading edn, delimiter unmatched (%s)" f))
                      (throw (io-err (str "Error reading edn. " (.getMessage t) " (%s)") f)))))]
-    (if (valid-deps? val)
+    (if (specs/valid-deps? val)
       val
-      (throw (io-err "%s is not valid." f)))))
+     (throw (io-err (str "Error reading deps %s. " (specs/explain-deps val)) f)))))
 
 :cljr 
 (defn- slurp-edn-map
@@ -77,9 +73,9 @@
                    (if (str/starts-with? (.Message t) "EOF while reading")
                      (throw (io-err "Error reading edn, delimiter unmatched (%s)" f))
                      (throw (io-err (str "Error reading edn. " (.Message t) " (%s)") f)))))]
-    (if (valid-deps? val)
+    (if (specs/valid-deps? val)
       val
-      (throw (io-err "%s is not valid." f)))))
+     (throw (io-err (str "Error reading deps %s. " (specs/explain-deps val)) f)))))
 )
 
 ;; all this canonicalization is deprecated and will eventually be removed
