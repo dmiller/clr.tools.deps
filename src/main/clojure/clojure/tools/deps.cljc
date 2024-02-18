@@ -959,25 +959,29 @@
 (defmacro ^:private in-project-dir
   "If project deps.edn is not in the current dir, push project directory
   into current directory context while creating basis. Local deps use paths
-  relative to project dir."
+  relative to project dir. Use anaphoric 'assumed-project in body."
   [project-deps & body]
   `(if (and (instance? String ~project-deps)
         (not (.equals dir/*the-dir* (.getParentFile (jio/file ~project-deps)))))
      (dir/with-dir (.getParentFile (jio/file ~project-deps))
-        ~@body)
-     (do ~@body)))	  
+       (let [~'assumed-project (.getName (jio/file ~project-deps))]
+         ~@body))
+     (let [~'assumed-project ~project-deps]
+       ~@body)))	  
 	 
 :cljr
 (defmacro ^:private in-project-dir
   "If project deps.edn is not in the current dir, push project directory
   into current directory context while creating basis. Local deps use paths
-  relative to project dir."
+  relative to project dir. Use anaphoric 'assumed-project in body."
   [project-deps & body]
   `(if (and (instance? String ~project-deps)
         (not (.Equals dir/*the-dir* (.Directory (cio/file-info ~project-deps)))))
      (dir/with-dir (.Directory (cio/file-info ~project-deps))
-        ~@body)
-     (do ~@body)))	  
+       (let [~'assumed-project (.Name (cio/file-info ~project-deps))]
+         ~@body))
+     (let [~'assumed-project ~project-deps]
+       ~@body))) 
 )
 
 (defn create-basis
@@ -1016,7 +1020,10 @@
     :classpath-roots - vector of paths in classpath order"
   [{:keys [root user project extra aliases] :as params}]
   (in-project-dir project 
-    (let [basis-config (cond-> nil
+    (let [project assumed-project ;; use anaphoric for project deps in context of project dir
+          params (cond-> params (contains? params :project) (assoc :project project))
+
+          basis-config (cond-> nil
                          (contains? params :root) (assoc :root root)
                          (contains? params :project) (assoc :project project)
                          (contains? params :user) (assoc :user user)
