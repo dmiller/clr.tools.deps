@@ -11,12 +11,14 @@
     #?(:clj [clojure.java.io :as jio]
 	   :cljr [clojure.clr.io :as cio])
     [clojure.set :as set]
+    [clojure.spec.alpha :as s]	
     [clojure.string :as str]
     [clojure.tools.deps.util.concurrent :as concurrent]
     [clojure.tools.deps.util.dir :as dir]
     [clojure.tools.deps.util.io :as io]
     [clojure.tools.deps.util.session :as session]
     [clojure.tools.deps.extensions :as ext]
+	[clojure.tools.deps.specs :as specs]
     [clojure.walk :as walk])
   (:import
     [clojure.lang #?(:clj EdnReader$ReaderException :cljr EdnReader+ReaderException)]
@@ -47,6 +49,9 @@
     (ex-info (format fmt path) {:path path})))
 )	
 
+(defn valid-deps? [m]
+  (s/valid? ::specs/deps-map m))
+
 #?(
 :clj 
 (defn- slurp-edn-map
@@ -58,9 +63,9 @@
                    (if (str/starts-with? (.getMessage t) "EOF while reading")
                      (throw (io-err "Error reading edn, delimiter unmatched (%s)" f))
                      (throw (io-err (str "Error reading edn. " (.getMessage t) " (%s)") f)))))]
-    (if (map? val)
+    (if (valid-deps? val)
       val
-      (throw (io-err "Expected edn map in: %s" f)))))
+      (throw (io-err "%s is not valid." f)))))
 
 :cljr 
 (defn- slurp-edn-map
@@ -72,9 +77,9 @@
                    (if (str/starts-with? (.Message t) "EOF while reading")
                      (throw (io-err "Error reading edn, delimiter unmatched (%s)" f))
                      (throw (io-err (str "Error reading edn. " (.Message t) " (%s)") f)))))]
-    (if (map? val)
+    (if (valid-deps? val)
       val
-      (throw (io-err "Expected edn map in: %s" f)))))
+      (throw (io-err "%s is not valid." f)))))
 )
 
 ;; all this canonicalization is deprecated and will eventually be removed
