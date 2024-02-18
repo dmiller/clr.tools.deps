@@ -441,7 +441,7 @@
                 result @pend-children]
             (when (instance? #?(:clj Throwable :cljr Exception) result)
               (on-error result))
-            (next-path (->> result (filter (fn [[lib _coord]] (child-pred lib))) (map #(conj ppath %))) q' on-error))
+            (recur (->> result (filter (fn [[lib _coord]] (child-pred lib))) (map #(conj ppath %))) q' on-error))
           {:path next-q, :q' q'})))))
 #?(
 
