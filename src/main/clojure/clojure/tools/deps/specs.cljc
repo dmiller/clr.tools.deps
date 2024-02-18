@@ -149,7 +149,7 @@
   :ret ::lib-map)
 
 (s/fdef clojure.tools.deps/make-classpath-map
-  :args (s/cat :deps ::deps-map, :libs ::lib-map, :classpath-args ::claspath-args)
+  :args (s/cat :deps ::deps-map, :libs ::lib-map, :classpath-args ::classpath-args)
   :ret map?)
 
 (s/fdef clojure.tools.deps/make-classpath
