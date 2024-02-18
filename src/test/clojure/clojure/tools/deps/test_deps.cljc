@@ -259,7 +259,7 @@
           (let [res (deps/resolve-deps {:deps {'ex/a {:fkn/version "1"}}} nil)]
             (libs->lib-ver res))))))
 
-(def ^:dynamic ^#?(:clj File :cljr DirectoryInfo) *test-dir*)
+(def ^:dynamic ^#?(:clj File :cljr DirectoryInfo) *test-dir* nil)
 
 #?(
 :clj 
