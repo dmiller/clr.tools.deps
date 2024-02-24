@@ -20,14 +20,34 @@
 
 (set! *warn-on-reflection* true)
 
+#?(
+:clj 
 (defn- deps-map
   [config dir]
-  (let [f (#?(:clj jio/file :cljr cio/file-info) dir "deps.edn")]
+  (let [f (jio/file dir "deps.edn")]
     (session/retrieve
-      {:deps :map :file (#?(:clj .getAbsolutePath :cljr .FullName) f)} ;; session key
-      #(if (#?(:clj .exists :cljr .Exists) f)
+      {:deps :map :file (.getAbsolutePath f)} ;; session key
+      #(if (.exists f)
          (deps/merge-edns [(deps/root-deps) (deps/slurp-deps f)])
          (deps/root-deps)))))
+
+:cljr
+;; We can use "deps.edn" as the key in the session map -- we just need a consistent key.
+;; The value under that key will be the deps file we actually read, whether it is "deps.edn" or "deps-clr.edn".
+(defn- deps-map
+  [config dir]
+  (let [f1 (cio/file-info dir "deps-clr.edn")
+        f2 (cio/file-info dir "deps.edn")]
+    (session/retrieve
+      {:deps :map :file (.FullName f2)} ;; session key
+      #(cond 
+         (.Exists f1)
+         (deps/merge-edns [(deps/root-deps) (deps/slurp-deps f1)])
+         (.Exists f2)
+         (deps/merge-edns [(deps/root-deps) (deps/slurp-deps f2)])
+         :else
+         (deps/root-deps)))))
+)
 
 (defmethod ext/coord-deps :deps
   [_lib {:keys [deps/root] :as _coord} _mf config]
@@ -47,11 +67,24 @@
 	     :cljr (map #(.FullName ^FileInfo %)))
       vec)))
 
+#?(
+:clj
 (defmethod ext/manifest-file :deps
   [_lib {:keys [deps/root] :as _coord} _mf _config]
-  (let [manifest (#?(:clj jio/file :cljr cio/file-info) root "deps.edn")]
-    (when (#?(:clj .exists :cljr .Exists) manifest)
-      (#?(:clj .getAbsolutePath :cljr .FullName) manifest))))
+  (let [manifest (jio/file root "deps.edn")]
+    (when (.exists manifest)
+      (.getAbsolutePath manifest))))
+
+:cljr
+(defmethod ext/manifest-file :deps
+  [_lib {:keys [deps/root] :as _coord} _mf _config]
+  (let [manifest1 (cio/file-info root "deps-clr.edn")
+        manifest2 (cio/file-info root "deps.edn")]
+    (cond (.Exists manifest1)
+          (.FullName manifest1)
+          (.Exists manifest2)
+		  (.FullName manifest2))))
+)
 
 (defmethod ext/coord-usage :deps [lib {:keys [deps/root] :as _coord} manifest-type config]
   (dir/with-dir (#?(:clj jio/file :cljr cio/file-info) root)

@@ -17,7 +17,8 @@
 
 ;; vector to control ordering
 (def manifest-types
-  ["deps.edn" :deps,
+  [#?(:cljr "deps-clr.edn") #?(:cljr :deps),
+  "deps.edn" :deps,
    "pom.xml" :pom
    ;; "project.clj" :lein
    ])
