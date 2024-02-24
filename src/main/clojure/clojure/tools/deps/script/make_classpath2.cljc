@@ -166,7 +166,9 @@
         {:keys [argmap libs classpath-roots]} basis
         {:keys [jvm-opts main-opts]} argmap]
     (when trace
-      (spit "trace.edn" (binding [*print-namespace-maps* false] (with-out-str (pprint/pprint trace-log)))))
+      (spit "trace.edn" 
+            (binding [*print-namespace-maps* false] (with-out-str (pprint/pprint trace-log)))
+             #?@(:cljr (:file-mode System.IO.FileMode/Truncate))))
     (when tree
       (-> trace-log tree/trace->tree (tree/print-tree nil)))
     (when-not skip-cp

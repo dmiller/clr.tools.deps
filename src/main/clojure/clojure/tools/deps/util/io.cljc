@@ -72,10 +72,12 @@
   (let [the-file (cio/file-info f)
         parent (.Directory the-file)]
     (when-not (.Exists parent)
-      (when-not (.Create parent)
-        (let [parent-name (.Name parent)]
-          (throw (ex-info (str "Can't create directory: " parent-name) {:dir parent-name})))))
-    (spit the-file s)))
+      (try
+        (.Create parent)
+        (catch Exception e
+          (let [parent-name (.Name parent)]
+            (throw (ex-info (str "Can't create directory: " parent-name ", " (.Message e)) {:dir parent-name}))))))
+    (spit the-file s :file-mode System.IO.FileMode/Truncate)))
 )
 
 

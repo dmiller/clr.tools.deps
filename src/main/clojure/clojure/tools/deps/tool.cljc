@@ -61,7 +61,8 @@
       (with-out-str
         (binding [*print-namespace-maps* false
                   pprint/*print-right-margin* 100]
-          (pprint/pprint {:lib lib :coord coord}))))))
+          (pprint/pprint {:lib lib :coord coord})))
+      #?@(:cljr (:file-mode System.IO.FileMode/Truncate)))))
 
 (defn resolve-tool
   "Resolve a tool by name, look up and return:
