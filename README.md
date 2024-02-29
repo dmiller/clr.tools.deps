@@ -8,21 +8,14 @@ Please see the parent repo for documentation.
 
 ## Releases
 
-This is definitely a work in progress.
-Process with caution.
+Definitely in an alpha situation.
 
+Latest release: 0.1.1
 
-Nuget reference:
+deps.edn dependency information:
 
-```PM> Install-Package clojure.core.async -Version 0.1.0-alpha1```
+ io.github.dmiller/deps-cljr-test1 {:git/tag "v0.1.1" :git/sha "TBD"}}
 
-deps.edn refernce:
-
-```asdf```
-
-Leiningen/Clojars reference:
-
-```[org.clojure.clr/toos.deps "0.1.0-alpha1"]```
 
 ## Copyright and License
 
